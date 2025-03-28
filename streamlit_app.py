@@ -15,7 +15,7 @@ class Scraper:
     @staticmethod
     def GetView(url):
         if url.find('www.youtube.com')==-1:
-            return -2
+            return '非YT'
         Got=(requests.get(url))
         bs=BeautifulSoup(Got.text,"html5lib")
 
@@ -56,13 +56,25 @@ class DataHandler:
         return file
     
     @staticmethod
-    def UpdateData(view_count:str, data=[], url=None):
-        if not view_count: return data
-        view_count = re.sub(r"[^0-9]", "", view_count)
-        new_data=data
-        if url: new_data.append(['Url',url])
-        new_data.append([DataHandler.GetTime(), view_count])
-        return new_data
+    def UpdateData(view_count_list:list, data=[]):
+        if not view_count_list: return data
+        for index,view_count in enumerate(view_count_list):
+            view_count_list[index] = re.sub(r"[^0-9]", "", view_count)
+        new_data=[]
+        for view_count in view_count_list:
+            new_data.append(DataHandler.GetTime())
+            new_data.append(view_count)
+        data.append(new_data)
+        return data
+    
+    @staticmethod
+    def UpdateUrlData(url:list,data=[]):
+        a_list=[]
+        for i in url:
+            a_list.append('URL')
+            a_list.append(i)
+        data.append(a_list)
+        return data
 
 class StreamlitApp:
     def __init__(self):
@@ -75,7 +87,8 @@ class StreamlitApp:
             "msg": '',
             "ta": '',
             "inside": None,
-            "choice": "網站使用說明"
+            "choice": "網站使用說明",
+            'url_cheak':False
             }.items():
             if key not in st.session_state: st.session_state[key] = default
 
@@ -83,74 +96,142 @@ class StreamlitApp:
     def Change(self):
         st.session_state['change']= True
         st.session_state['disable']=False
+        st.session_state['url_cheak']=False
         for i in ['inside']: st.session_state[i]=None
     def Disable(self):
         st.session_state.disable=True
     def Clear(self):
         for i in ['ta']: st.session_state[i] = ''
         for i in ['change']: st.session_state[i] = False
+        st.session_state['url_cheak']=False
     def Relode(self):
         for i in ['change','disable']: st.session_state[i] = False
         for i in ['msg','ta']: st.session_state[i] = ''
         for i in ['inside']: st.session_state[i]=None
+        st.session_state['url_cheak']=False
     def Disc(self):
         st.session_state['choice']='網站使用說明'
 
     def UpData(self,data):
         if data: st.session_state['inside']=data
-    def GetUrl(self,data:list):
-        return data[0][1]
+    def GetUrlList(self,data:list):
+        return data[0]
     
     def DisplayTable(self,data,container=None):
         if container:
             popover=container.popover("展示數據表格",use_container_width=True,icon=':material/description:')
             popover.table(data=data)
-
+        else:
+            popover=st.popover("展示數據表格",use_container_width=True,icon=':material/description:')
+            popover.table(data=data)
+##############修
     def DisplayChart(self,data:list):
-        chart_data =[[pd.to_datetime(i[0]),int(i[1])] for i in data[1:]]
-        df =pd.DataFrame(chart_data ,columns=["date","view"])
-        st.line_chart(data=df,x='date',y='view',width=700,height=1000,x_label="時間軸",y_label='觀看次數')
-    
+        chart_data=self.DealChartData(data)
+        
+        df=pd.DataFrame({
+            'col1':[data[0]  for one_video in chart_data for data in one_video],
+            'col2':[data[1]  for one_video in chart_data for data in one_video],
+            'col3':[str(i) for i in range(len(chart_data)) for j in range(len(chart_data[i]))]
+        })
+
+        st.line_chart(data=df,x='col1',y='col2',color='col3',width=700,height=1000,x_label="時間軸",y_label='觀看次數')
+
+ 
+    def DealChartData(self,data:list):
+        chart_data=[]
+        for list_data in data[1:]:
+            len_list_data,len_chart_data=int(len(list_data)/2),len(chart_data)
+            if (len_chart_data<len_list_data): 
+                for i in range(len_list_data-len_chart_data): chart_data.append([]) 
+            for index,value in enumerate((list_data)):
+                if (index%2==0):
+                    data=[pd.to_datetime(value),int(list_data[index+1])]
+                    chart_data[int(index/2)].append(data)
+        return chart_data
+
+
     def DisplayResult(self,view_count,url,file_name="數據",existing_data=None):
         c1,c2,c3=st.columns([1,1,1], vertical_alignment="bottom",gap='small')
-        c1.link_button("前往網站",url=url,icon=":material/open_in_new:",use_container_width=True)
+        #######################待更
+        #c1.link_button("前往網站",url=url,icon=":material/open_in_new:",use_container_width=True)
         if existing_data:
-            updated_data=DataHandler.UpdateData(view_count=view_count,data=existing_data.copy())
+            updated_data=DataHandler.UpdateData(view_count_list=view_count,data=existing_data.copy())
             self.UpData(updated_data.copy())
             csv_data = DataHandler.SaveCSV(updated_data)
             c2.download_button("下載 CSV", file_name=f"{file_name}.csv", data=csv_data, mime="text/csv", icon=":material/download:", use_container_width=True)
             self.DisplayTable(updated_data, c3)
             self.DisplayChart(updated_data)
-        else:
-            data=DataHandler.UpdateData(view_count, url=url)
+        else:  
+            data=DataHandler.UpdateUrlData(url)
+            data=DataHandler.UpdateData(view_count,data=data)
             csv_data = DataHandler.SaveCSV(data)
             c2.download_button("下載 CSV", file_name=f"{file_name}.csv", data=csv_data, mime="text/csv", icon=":material/download:", use_container_width=True,type='primary')
+
+
+
+    def DealUrlList(self,url:list,urldata=[],newurl=[]):
+        for i in url:
+            if i.find('http')==-1:urldata.append(i)
+            else: newurl.append(i)
+        
+        new_data=self.UrlCheak(urldata)
+        if new_data is None:new_data=[]
+        return newurl+new_data
+
+    def UrlCheak(self,url:list):
+        if not url: return None
+        df=pd.DataFrame([{'change':i,'changed':f'https://{i}','cheak_box':True} for i in url])
+        edited_df=st.data_editor(
+            df,
+            column_config={
+                'change':'未包含[https://]，無法執行',
+                'changed':'更改後',
+                'cheak_box':'請勾選要更改的項目(未勾選的選項將自動刪除)'},
+        disabled=["change", "changed"],
+        hide_index=True
+        )
+        
+        true_indices = edited_df[edited_df['cheak_box']]
+        true_indices=true_indices['changed'].tolist()
+
+        return true_indices
+
+
+    def DealViewCountError(self,url):
+        view_count_list=[Scraper.GetView(i) for i in url]
+        for index,value in enumerate(view_count_list):
+            if value == '非YT' or value=='解析錯誤' or value is None:
+                if value == '非YT': st.write(f"{url[index]}不是 YouTube 影片網址，自動刪除")
+                elif value=='解析錯誤' or value is None: st.write(f'{url[index]}解析錯誤，自動刪除')
+                url.remove(url[index])
+                view_count_list.remove(value)
+        return url,view_count_list
+
+
+
+
 
     def FirstUse(self):
         c1,c2=st.columns(2)
         c1.subheader("初次使用")
         c2.button("不知道怎麼使用?點擊觀看說明",on_click=self.Disc)
-        text=st.text_area("輸入YT影片網址",value='',height=68, max_chars=None, key='ta', help="請包涵http或https", on_change=self.Change, args=None, kwargs=None, placeholder="請輸入網址", disabled=False, label_visibility="visible")
+        text=st.text_area("輸入YT影片網址",value='',height=68, max_chars=None, key='ta', help="請包涵http或https，若需要多個影片請用[;]區隔", on_change=self.Change, args=None, kwargs=None, placeholder="請輸入網址，若需要多個影片，請中間使用[;](分號)分隔", disabled=False, label_visibility="visible")
         st.button("清除",on_click=self.Clear,icon=":material/delete:")
         if st.session_state.change:
             try:
-                url=text
-                view_count=Scraper.GetView(url)
-                if view_count == -2: st.write("這不是 YouTube 影片網址")
-                else:self.DisplayResult(view_count,url)
-            except requests.exceptions.MissingSchema:
-                if not(st.session_state.disable): st.write(f"請問是否為https://{url}")
-                c1,c2=st.columns(2)
-                c1.button("否",on_click=self.Clear,disabled=st.session_state.disable,use_container_width=True,icon=":material/close:")
-                if (c2.button("是",disabled=st.session_state.disable,on_click=self.Disable,use_container_width=True,icon=":material/check:")):
-                    try:
-                        view_count=Scraper.GetView(f"https://{url}")
-                        if view_count==-2: st.write("這不是 YouTube 影片網址")
-                        else: self.DisplayResult(view_count)
-                    except: st.write("網址錯誤，請重新輸入")
+                url=text.split(";")
+                url=dict.fromkeys(url)
+                url=[i for i in url if i !='']
+#                print(f'URL:{url}')
+                url=self.DealUrlList(url)
+                if st.button('確認選擇',icon=":material/done_outline:",on_click=self.Disable):
+                    
+                    url,view_count_list=self.DealViewCountError(url)
+                    if view_count_list : self.DisplayResult(view_count_list,url)
+                    else:st.write("無資料")
             except:st.write("未知錯誤")
     
-    def UpdateData(self):
+    def UpdateData(self): 
         c1,c2=st.columns(2)
         c1.subheader("資料更新")
         c2.button("不知道怎麼使用?點擊觀看說明",on_click=self.Disc)
@@ -160,17 +241,17 @@ class StreamlitApp:
             if st.button('更新資料',type='primary',icon=":material/refresh:"):
                 list_data=st.session_state.inside if st.session_state.inside else data
                 try:
-                    url=self.GetUrl(list_data)
-                    view_count=Scraper.GetView(url)
-                    if view_count==-2: st.write("這不是 YouTube 影片網址")
-                    else: self.DisplayResult(view_count,url,existing_data=list_data)
+                    url=[i for i in self.GetUrlList(list_data) if (i !='URL')] #
+                    view_count_list=[Scraper.GetView(i) for i in url]
+    ##################
+                    if view_count_list : self.DisplayResult(view_count_list,url,existing_data=list_data)
                 except: st.write("未知錯誤")
     
     def Description(self):
         st.markdown("""
                     **這是一個app幫你抓取YT影片觀看次數並以表格和圖表呈現。**\n
                     若首次使用，請選擇**初次使用模式**:\n
-                    :material/star_rate: :violet[貼上連結後輸入，即可下載一份CSV檔案並自動包含第一份數據]\n
+                    :material/star_rate: :violet[貼上連結後輸入(ctrl+enter)，即可下載一份CSV檔案並自動包含第一份數據，若需要多個影片請用分號區隔]\n
                     若希望獲得更多數據與表格，請至**資料更新模式**:\n
                     :material/star_rate: :violet[上傳CSV檔案後即可點擊更新資料]
                     """)
