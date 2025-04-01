@@ -237,10 +237,13 @@ class StreamlitApp:
         c2.button("不知道怎麼使用?點擊觀看說明",on_click=self.Disc)
         uploaded_file=st.file_uploader("上傳你上次的CSV",type=['csv'],help='初次使用請切換模式',key='',on_change=self.Change)
         if st.session_state.change and uploaded_file:
-            data = DataHandler.ReadCsv(uploaded_file)
+            try:
+                data = DataHandler.ReadCsv(uploaded_file)
+            except: print("無法讀取檔案")
             if st.button('更新資料',type='primary',icon=":material/refresh:"):
-                list_data=st.session_state.inside if st.session_state.inside else data
                 try:
+                    list_data=st.session_state.inside if st.session_state.inside else data
+                
                     url=[i for i in self.GetUrlList(list_data) if (i !='URL')] #
                     view_count_list=[Scraper.GetView(i) for i in url]
     ##################
