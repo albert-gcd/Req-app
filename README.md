@@ -1,19 +1,6 @@
-# 🎈 Blank app template
+# 🎈This is requests app
 
-A simple Streamlit app template for you to modify!
+幫你抓取影片觀看數字並繪製成圖片
+請點擊以下按鈕開啟網站使用
+[![開啟網站](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-for-requests.streamlit.app/)
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
-
-### How to run it on your own machine
-
-1. Install the requirements
-
-   ```
-   $ pip install -r requirements.txt
-   ```
-
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
