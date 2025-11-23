@@ -289,14 +289,14 @@ class StreamlitApp(BackgroundSessionState,UrlDealer,StreaamlitFuntion):
                 data = DataHandler.ReadCsv(uploaded_file)
             except: print("無法讀取檔案")
             if st.button('更新資料',type='primary',icon=":material/refresh:"):
-                #try:
-                list_data=st.session_state.inside if st.session_state.inside else data
-            
-                url=[i for i in self.GetUrlList(list_data) if (i !='URL')] #
-                view_count_list=[Scraper.GetView(i) for i in url]
-##################
-                if view_count_list : self.DisplayResult(view_count_list,url,existing_data=list_data,mode="UP")
-                #except: st.write("未知錯誤")
+                try:
+                    list_data=st.session_state.inside if st.session_state.inside else data
+                
+                    url=[i for i in self.GetUrlList(list_data) if (i !='URL')] #
+                    view_count_list=[Scraper.GetView(i) for i in url]
+    ##################
+                    if view_count_list : self.DisplayResult(view_count_list,url,existing_data=list_data,mode="UP")
+                except: st.write("未知錯誤")
     
     def Description(self):
         st.markdown("""
